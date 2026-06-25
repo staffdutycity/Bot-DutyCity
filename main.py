@@ -2,6 +2,8 @@ import os
 import asyncio
 import requests
 import discord
+import threading
+from http.server import SimpleHTTPRequestHandler, HTTPServer
 from discord.ext import tasks
 
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
@@ -14,6 +16,12 @@ UPDATE_INTERVAL_MINUTES = 5
 intents = discord.Intents.default()
 bot = discord.Client(intents=intents)
 
+
+def run_fake_server():
+    port = int(os.environ.get("PORT", 10000))
+    server = HTTPServer(('0.0.0.0', port), SimpleHTTPRequestHandler)
+    print(f"[INFO] Fake web server listening on port {port}")
+    server.serve_forever()
 
 def fetch_server_status():
     try:
@@ -28,7 +36,6 @@ def fetch_server_status():
     except Exception as e:
         print(f"[ERROR] Failed to fetch server status: {e}")
         return None, 0, 0
-
 
 @tasks.loop(minutes=UPDATE_INTERVAL_MINUTES)
 async def update_channel_name():
@@ -54,7 +61,6 @@ async def update_channel_name():
     except Exception as e:
         print(f"[ERROR] Failed to update channel name: {e}")
 
-
 @bot.event
 async def on_ready():
     print(f"Logged in as {bot.user} (ID: {bot.user.id})")
@@ -63,7 +69,6 @@ async def on_ready():
     print("------")
     update_channel_name.start()
 
-
 if __name__ == "__main__":
     if not DISCORD_TOKEN:
         raise ValueError("DISCORD_TOKEN secret is not set.")
@@ -71,5 +76,8 @@ if __name__ == "__main__":
         raise ValueError("VOICE_CHANNEL_ID environment variable is not set.")
     if not MINECRAFT_SERVER_IP:
         raise ValueError("MINECRAFT_SERVER_IP environment variable is not set.")
+
+    
+    threading.Thread(target=run_fake_server, daemon=True).start()
 
     bot.run(DISCORD_TOKEN)
